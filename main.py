@@ -2,6 +2,8 @@ import pygame
 import sys
 import asyncio
 import json
+import math
+import random
 
 try:
     from platform import window
@@ -14,19 +16,20 @@ WIDTH, HEIGHT = 960, 540
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("가족 의사소통 & 갈등 해결 마스터")
 
-BG_COLOR = (240, 244, 248)
-PRIMARY = (99, 102, 241)
-PRIMARY_DARK = (67, 56, 202)
-ACCENT_PINK = (244, 114, 182)
+# 색상 팔레트 (파스텔 톤 강화)
+BG_COLOR = (245, 247, 250)
+PRIMARY = (129, 140, 248)       # 몽환적인 파스텔 블루/퍼플
+PRIMARY_DARK = (79, 70, 229)
+ACCENT_PINK = (251, 113, 133)   # 귀여운 분홍색
 ACCENT_GREEN = (52, 211, 153)
 CARD_BG = (255, 255, 255)
-CARD_BORDER = (226, 232, 240)
+CARD_BORDER = (224, 231, 255)
 TEXT_DARK = (30, 41, 59)
-TEXT_MUTED = (100, 116, 139)
+TEXT_MUTED = (148, 163, 184)
 WHITE = (255, 255, 255)
 ERROR_RED = (248, 113, 113)
+GOLD_YELLOW = (251, 191, 36)
 
-# 폰트 변수를 전역에서 즉시 생성하지 않고 None으로 선언
 FONT_TITLE = None
 FONT_SUB = None
 FONT_BODY = None
@@ -34,119 +37,147 @@ FONT_BODY = None
 def get_font(size, bold=False):
     try:
         return pygame.font.Font("font.ttf", size)
-    except Exception as e:
-        print(f"Font Load Error: {e}")
+    except Exception:
         return pygame.font.Font(None, size)
 
-# ... (draw_avatar, draw_speech_bubble, Button, InputBox, QUESTIONS, submit_to_google_sheet 생략) ...
+# ================= 파티클 & 연출 시스템 =================
+particles = []
 
-async def main():
-    global FONT_TITLE, FONT_SUB, FONT_BODY
+class FloatingParticle:
+    def __init__(self, x, y, text, color):
+        self.x = x
+        self.y = y
+        self.text = text
+        self.color = color
+        self.alpha = 255
+        self.scale = 1.0
+
+    def update(self):
+        self.y -= 1.5
+        self.alpha -= 5
+        return self.alpha > 0
+
+    def draw(self, surface):
+        if FONT_SUB:
+            txt_sf = FONT_SUB.render(self.text, True, self.color)
+            txt_sf.set_alpha(self.alpha)
+            surface.blit(txt_sf, (self.x - txt_sf.get_width()//2, self.y))
+
+def add_hearts(x, y):
+    for _ in range(6):
+        particles.append(FloatingParticle(x + random.randint(-30, 30), y + random.randint(-20, 20), "💖", ACCENT_PINK))
+
+def add_sweat(x, y):
+    for _ in range(4):
+        particles.append(FloatingParticle(x + random.randint(-30, 30), y + random.randint(-20, 20), "💦", PRIMARY))
+
+# ================= 생동감 넘치는 캐릭터 아바타 =================
+def draw_avatar(surface, x, y, role="friend", expression="happy", bounce_offset=0):
+    y += int(bounce_offset)
     
-    # 웹 환경 파일로드 대기를 위해 비동기 딜레이 및 main 내부 초기화
-    await asyncio.sleep(0.1)
+    # 얼굴 기본 색상 (더 뽀얗게)
+    face_color = (254, 226, 226) if role == "sister" else ((254, 240, 138) if role == "dad" else (255, 237, 213))
     
-    FONT_TITLE = get_font(22, bold=True)
-    FONT_SUB = get_font(17, bold=True)
-    FONT_BODY = get_font(14)
+    # 아바타 그림자
+    pygame.draw.ellipse(surface, (218, 224, 233), (x - 28, y + 26, 56, 12))
+    # 얼굴 윤곽
+    pygame.draw.circle(surface, face_color, (x, y), 34)
+    pygame.draw.circle(surface, (251, 146, 60), (x, y), 34, 2)
 
-    clock = pygame.time.Clock()
-    
-    q_idx = 0
-    score = 0
-    feedback_msg = ""
-    feedback_color = ACCENT_GREEN
+    # 귀여운 볼터치 (기본 장착)
+    pygame.draw.circle(surface, (251, 113, 133, 100), (x - 18, y + 8), 7)
+    pygame.draw.circle(surface, (251, 113, 133, 100), (x + 18, y + 8), 7)
 
-    id_input = InputBox(330, 260, 300, 36, "예: 10101")
-    name_input = InputBox(330, 315, 300, 36, "예: 홍길동")
-    submit_btn = Button(380, 375, 200, 40, "구글 시트에 제출")
-    submitted = False
-
-    buttons = []
-    def load_question():
-        nonlocal buttons
-        buttons = []
-        opts = QUESTIONS[q_idx]["options"]
-        for idx, (text, is_correct) in enumerate(opts):
-            btn = Button(80, 248 + idx * 47, 800, 38, text)
-            buttons.append((btn, is_correct))
-
-    load_question()
-    running = True
-
-    while running:
-        # ... (이하 메인 루프 동일) ...
-# 캐릭터 삽화 함수
-def draw_avatar(surface, x, y, role="friend", expression="happy"):
-    face_color = (254, 226, 226) if role == "sister" else ((253, 230, 138) if role == "dad" else (254, 243, 199))
-    pygame.draw.circle(surface, face_color, (x, y), 32)
-    pygame.draw.circle(surface, (217, 119, 6), (x, y), 32, 2)
-
+    # 머리 스타일
     if role == "sister":
-        pygame.draw.circle(surface, (180, 83, 9), (x - 22, y - 8), 10)
-        pygame.draw.circle(surface, (180, 83, 9), (x + 22, y - 8), 10)
-        pygame.draw.arc(surface, (180, 83, 9), (x - 32, y - 35, 64, 45), 0, 3.14, 10)
+        pygame.draw.circle(surface, (194, 65, 12), (x - 26, y - 8), 12) # 양갈래
+        pygame.draw.circle(surface, (194, 65, 12), (x + 26, y - 8), 12)
+        pygame.draw.arc(surface, (194, 65, 12), (x - 35, y - 38, 70, 48), 0, 3.14, 12)
     elif role == "dad":
-        pygame.draw.rect(surface, (71, 85, 105), (x - 30, y - 32, 60, 22), border_radius=8)
-        pygame.draw.circle(surface, (51, 65, 85), (x - 10, y - 5), 8, 2)
-        pygame.draw.circle(surface, (51, 65, 85), (x + 10, y - 5), 8, 2)
+        pygame.draw.rect(surface, (51, 65, 85), (x - 32, y - 35, 64, 20), border_radius=10) # 신사 모자/머리
+        # 안경
+        pygame.draw.circle(surface, (30, 41, 59), (x - 12, y - 3), 9, 2)
+        pygame.draw.circle(surface, (30, 41, 59), (x + 12, y - 3), 9, 2)
+        pygame.draw.line(surface, (30, 41, 59), (x - 3, y - 3), (x + 3, y - 3), 2)
     else:
-        pygame.draw.arc(surface, (30, 41, 59), (x - 32, y - 35, 64, 40), 0, 3.14, 12)
+        pygame.draw.arc(surface, (30, 41, 59), (x - 34, y - 36, 68, 42), 0, 3.14, 14)
 
-    pygame.draw.circle(surface, (251, 113, 133), (x - 16, y + 6), 5)
-    pygame.draw.circle(surface, (251, 113, 133), (x + 16, y + 6), 5)
-
+    # 표정 애니메이션 (초롱초롱한 눈 / 화남 / 슬픔)
     if expression == "sad":
-        pygame.draw.line(surface, TEXT_DARK, (x - 16, y - 5), (x - 8, y - 2), 2)
-        pygame.draw.line(surface, TEXT_DARK, (x + 8, y - 2), (x + 16, y - 5), 2)
+        # 우는 눈 > <
+        pygame.draw.line(surface, TEXT_DARK, (x - 16, y - 6), (x - 8, y - 2), 3)
+        pygame.draw.line(surface, TEXT_DARK, (x - 8, y - 2), (x - 16, y + 2), 3)
+        pygame.draw.line(surface, TEXT_DARK, (x + 16, y - 6), (x + 8, y - 2), 3)
+        pygame.draw.line(surface, TEXT_DARK, (x + 8, y - 2), (x + 16, y + 2), 3)
+        # 시무룩한 입
         pygame.draw.arc(surface, TEXT_DARK, (x - 8, y + 10, 16, 10), 0, 3.14, 2)
     elif expression == "angry":
-        pygame.draw.line(surface, TEXT_DARK, (x - 16, y - 8), (x - 8, y - 2), 2)
-        pygame.draw.line(surface, TEXT_DARK, (x + 8, y - 2), (x + 16, y - 8), 2)
-        pygame.draw.line(surface, TEXT_DARK, (x - 8, y + 12), (x + 8, y + 12), 2)
-    else:
-        pygame.draw.circle(surface, TEXT_DARK, (x - 12, y - 5), 3)
-        pygame.draw.circle(surface, TEXT_DARK, (x + 12, y - 5), 3)
-        pygame.draw.arc(surface, TEXT_DARK, (x - 8, y + 4, 16, 10), 3.14, 6.28, 2)
+        # 앵그리 눈썹 \ /
+        pygame.draw.line(surface, ERROR_RED, (x - 18, y - 10), (x - 6, y - 4), 3)
+        pygame.draw.line(surface, ERROR_RED, (x + 18, y - 10), (x + 6, y - 4), 3)
+        pygame.draw.circle(surface, TEXT_DARK, (x - 10, y - 2), 3)
+        pygame.draw.circle(surface, TEXT_DARK, (x + 10, y - 2), 3)
+        # 입 모양
+        pygame.draw.line(surface, TEXT_DARK, (x - 8, y + 12), (x + 8, y + 12), 3)
+        # 분노 핏줄 마크 💢
+        txt_sf = FONT_BODY.render("💢", True, ERROR_RED)
+        surface.blit(txt_sf, (x + 18, y - 30))
+    else: # happy
+        # 반짝이는 눈✨
+        pygame.draw.circle(surface, TEXT_DARK, (x - 12, y - 4), 4)
+        pygame.draw.circle(surface, WHITE, (x - 13, y - 5), 2)
+        pygame.draw.circle(surface, TEXT_DARK, (x + 12, y - 4), 4)
+        pygame.draw.circle(surface, WHITE, (x + 11, y - 5), 2)
+        # 미소
+        pygame.draw.arc(surface, ACCENT_PINK, (x - 10, y + 2, 20, 14), 3.14, 6.28, 3)
 
-# 말풍선 함수
+# ================= 대화 말풍선 =================
 def draw_speech_bubble(surface, text, x, y, w, h):
     rect = pygame.Rect(x, y, w, h)
-    pygame.draw.rect(surface, CARD_BG, rect, border_radius=12)
-    pygame.draw.rect(surface, PRIMARY, rect, 2, border_radius=12)
+    pygame.draw.rect(surface, CARD_BG, rect, border_radius=16)
+    pygame.draw.rect(surface, PRIMARY, rect, 3, border_radius=16)
     
-    points = [(x - 10, y + 20), (x, y + 12), (x, y + 28)]
+    # 꼬리표
+    points = [(x - 12, y + 24), (x, y + 16), (x, y + 32)]
     pygame.draw.polygon(surface, CARD_BG, points)
-    pygame.draw.lines(surface, PRIMARY, False, [(x, y + 12), (x - 10, y + 20), (x, y + 28)], 2)
+    pygame.draw.lines(surface, PRIMARY, False, [(x, y + 16), (x - 12, y + 24), (x, y + 32)], 3)
 
     words = text.split('\n')
     for i, line in enumerate(words):
         txt_sf = FONT_BODY.render(line, True, TEXT_DARK)
-        surface.blit(txt_sf, (x + 15, y + 10 + i * 20))
+        surface.blit(txt_sf, (x + 18, y + 12 + i * 22))
 
-# 5지선다 맞춤형 버튼 클래스
+# ================= 입체감 있는 모션 버튼 =================
 class Button:
     def __init__(self, x, y, w, h, text):
         self.rect = pygame.Rect(x, y, w, h)
         self.text = text
         self.hover = False
+        self.press_offset = 0
 
     def draw(self, surface):
+        self.press_offset = 3 if self.hover else 0
+        
+        # 버튼 그림자 효과
+        shadow_rect = pygame.Rect(self.rect.x, self.rect.y + 4, self.rect.w, self.rect.h)
+        pygame.draw.rect(surface, (203, 213, 225), shadow_rect, border_radius=10)
+
+        # 실제 버튼
+        draw_rect = pygame.Rect(self.rect.x, self.rect.y + self.press_offset, self.rect.w, self.rect.h)
         bg = PRIMARY if self.hover else CARD_BG
         border = PRIMARY_DARK if self.hover else CARD_BORDER
         text_color = WHITE if self.hover else TEXT_DARK
 
-        pygame.draw.rect(surface, bg, self.rect, border_radius=8)
-        pygame.draw.rect(surface, border, self.rect, 2, border_radius=8)
+        pygame.draw.rect(surface, bg, draw_rect, border_radius=10)
+        pygame.draw.rect(surface, border, draw_rect, 2, border_radius=10)
 
         txt_sf = FONT_BODY.render(self.text, True, text_color)
-        txt_rect = txt_sf.get_rect(center=self.rect.center)
+        txt_rect = txt_sf.get_rect(center=draw_rect.center)
         surface.blit(txt_sf, txt_rect)
 
     def check_hover(self, pos):
         self.hover = self.rect.collidepoint(pos)
 
-# 입력창 클래스
 class InputBox:
     def __init__(self, x, y, w, h, placeholder=""):
         self.rect = pygame.Rect(x, y, w, h)
@@ -173,11 +204,10 @@ class InputBox:
         txt_sf = FONT_BODY.render(disp_text, True, text_color)
         surface.blit(txt_sf, (self.rect.x + 12, self.rect.y + 8))
 
-# ================= 5지선다 검토 완료 질문 데이터베이스 =================
+# ================= 질문 데이터베이스 =================
 QUESTIONS = [
     {
-        "cat": "1단계: 나-전달법 (행동 묘사)",
-        "role": "sister", "exp": "angry",
+        "cat": "1단계: 나-전달법 (행동 묘사)", "role": "sister", "exp": "angry",
         "dialogue": "동생이 허락 없이 학용품을 가져가 잃어버린 상황!",
         "q": "비난이나 평가 없이 상대방의 '행동'만 객관적으로 표현한 것은?",
         "options": [
@@ -189,8 +219,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "2단계: 나-전달법 (영향 및 감정)",
-        "role": "friend", "exp": "sad",
+        "cat": "2단계: 나-전달법 (영향 및 감정)", "role": "friend", "exp": "sad",
         "dialogue": "친구가 약속 시간에 30분 넘게 연락도 없이 늦게 온 상황!",
         "q": "나에게 미친 '영향과 솔직한 감정'을 올바르게 표현한 것은?",
         "options": [
@@ -202,8 +231,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "3단계: 나-전달법 (바라는 사항)",
-        "role": "dad", "exp": "sad",
+        "cat": "3단계: 나-전달법 (바라는 사항)", "role": "dad", "exp": "sad",
         "dialogue": "부모님이 내 의견을 묻지 않고 주말 일정을 일방적으로 정하셨을 때!",
         "q": "상대방에게 올바르게 '바라는 사항'을 요청하는 문장은?",
         "options": [
@@ -215,8 +243,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "4단계: 너-전달법 → 나-전달법 변환",
-        "role": "sister", "exp": "angry",
+        "cat": "4단계: 너-전달법 → 나-전달법 변환", "role": "sister", "exp": "angry",
         "dialogue": "너-전달법: \"너는 왜 내가 말할 때마다 폰만 보고 딴청이니?\"",
         "q": "위 '너-전달법'을 올바른 '나-전달법'으로 바꾼 것은?",
         "options": [
@@ -228,8 +255,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "5단계: 나-전달법 3요소 완성",
-        "role": "friend", "exp": "happy",
+        "cat": "5단계: 나-전달법 3요소 완성", "role": "friend", "exp": "happy",
         "dialogue": "\"네가 연락 없이 약속에 늦어서(행동), 기다리며 걱정되고 속상했어(영향/감정).\"",
         "q": "이 문장 뒤에 이어질 마지막 '바라는 사항'으로 가장 적절한 것은?",
         "options": [
@@ -241,8 +267,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "6단계: 경청과 공감",
-        "role": "friend", "exp": "sad",
+        "cat": "6단계: 경청과 공감", "role": "friend", "exp": "sad",
         "dialogue": "친구나 가족이 시험 성적이 떨어져 우울하다고 고민을 털어놓을 때!",
         "q": "경청과 공감의 바람직한 대화 태도는 무엇일까요?",
         "options": [
@@ -254,8 +279,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "7단계: 나-전달법과 비언어적 표현",
-        "role": "sister", "exp": "angry",
+        "cat": "7단계: 나-전달법과 비언어적 표현", "role": "sister", "exp": "angry",
         "dialogue": "나-전달법으로 말하지만 표정은 찌푸리고 팔짱을 끼고 있는 상황!",
         "q": "나-전달법을 사용할 때 비언어적 표현(표정, 말투, 시선)의 올바른 태도는?",
         "options": [
@@ -267,8 +291,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "8단계: 성격 유형별 대화 (사고형 T)",
-        "role": "dad", "exp": "happy",
+        "cat": "8단계: 성격 유형별 대화 (사고형 T)", "role": "dad", "exp": "happy",
         "dialogue": "원칙과 논리적 사실 관계를 중시하는 '사고형(T)' 아빠와의 대화!",
         "q": "T형 가족 구성원과 갈등을 해결할 때 가장 효과적인 대화법은?",
         "options": [
@@ -280,8 +303,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "9단계: 성격 유형별 대화 (감정형 F)",
-        "role": "sister", "exp": "sad",
+        "cat": "9단계: 성격 유형별 대화 (감정형 F)", "role": "sister", "exp": "sad",
         "dialogue": "관계와 공감, 마음의 공유를 중시하는 '감정형(F)' 동생과의 대화!",
         "q": "F형 가족 구성원의 마음을 열 수 있는 바람직한 대화법은?",
         "options": [
@@ -293,8 +315,7 @@ QUESTIONS = [
         ]
     },
     {
-        "cat": "10단계: 가족 갈등 해결 4단계",
-        "role": "friend", "exp": "happy",
+        "cat": "10단계: 가족 갈등 해결 4단계", "role": "friend", "exp": "happy",
         "dialogue": "교과서에 제시된 가족 갈등 해결의 체계적인 4단계 프로세스!",
         "q": "갈등을 올바르게 해결하는 순서로 가장 적절한 것은?",
         "options": [
@@ -307,11 +328,9 @@ QUESTIONS = [
     }
 ]
 
-# Google Sheet 데이터 전송 함수
 def submit_to_google_sheet(std_id, name, score):
     script_url = "https://script.google.com/macros/s/AKfycbxl5cVTV1iVWKtqH64oyKxFZfCK0PzBeaFWskMUk0iWaTmuiH0Ul07tKC-ms5O0Y-6f/exec" 
     payload = json.dumps({"std_id": std_id, "name": name, "score": score})
-    
     if window:
         try:
             window.fetch(script_url, {
@@ -326,12 +345,21 @@ def submit_to_google_sheet(std_id, name, score):
             return False
     return True
 
-# ================= 메인 루프 =================
+# ================= 메인 실행 루프 =================
 async def main():
+    global FONT_TITLE, FONT_SUB, FONT_BODY
+    await asyncio.sleep(0.1)
+    
+    FONT_TITLE = get_font(22, bold=True)
+    FONT_SUB = get_font(17, bold=True)
+    FONT_BODY = get_font(14)
+
     clock = pygame.time.Clock()
     
     q_idx = 0
     score = 0
+    combo = 0
+    shake_amount = 0
     feedback_msg = ""
     feedback_color = ACCENT_GREEN
 
@@ -345,7 +373,6 @@ async def main():
         nonlocal buttons
         buttons = []
         opts = QUESTIONS[q_idx]["options"]
-        # 5지선다 버튼 Y축 간격 재배치 (248px부터 시작, 높이 38px, 간격 47px)
         for idx, (text, is_correct) in enumerate(opts):
             btn = Button(80, 248 + idx * 47, 800, 38, text)
             buttons.append((btn, is_correct))
@@ -354,7 +381,17 @@ async def main():
     running = True
 
     while running:
-        screen.fill(BG_COLOR)
+        # 바운스 및 화면 흔들림 계산
+        ticks = pygame.time.get_ticks()
+        bounce_offset = math.sin(ticks * 0.006) * 4
+        
+        shake_x = random.randint(-shake_amount, shake_amount) if shake_amount > 0 else 0
+        shake_y = random.randint(-shake_amount, shake_amount) if shake_amount > 0 else 0
+        if shake_amount > 0: shake_amount -= 1
+
+        # 배경 렌더링 (화면 흔들림 반영)
+        canvas = pygame.Surface((WIDTH, HEIGHT))
+        canvas.fill(BG_COLOR)
         pos = pygame.mouse.get_pos()
 
         for event in pygame.event.get():
@@ -366,12 +403,18 @@ async def main():
                     btn.check_hover(pos)
                     if event.type == pygame.MOUSEBUTTONDOWN and btn.rect.collidepoint(pos):
                         if is_correct:
+                            combo += 1
                             score += 10
-                            feedback_msg = "정답입니다! 올바른 의사소통 표현입니다. (+10점)"
+                            shake_amount = 0
+                            feedback_msg = f"🎉 정답! 가족 화목도 UP! ({combo}연속 성공!)"
                             feedback_color = ACCENT_GREEN
+                            add_hearts(85, 152)
                         else:
-                            feedback_msg = "오답입니다! 상대방을 비난하거나 부적절한 대화법입니다."
+                            combo = 0
+                            shake_amount = 8  # 정답 틀릴 시 화면 쿠쿵!
+                            feedback_msg = "💔 오답! 상처주는 대화법입니다."
                             feedback_color = ERROR_RED
+                            add_sweat(85, 152)
                         
                         q_idx += 1
                         if q_idx < 10:
@@ -386,68 +429,88 @@ async def main():
                     if id_input.text and name_input.text:
                         submit_to_google_sheet(id_input.text, name_input.text, score)
                         submitted = True
-                        feedback_msg = "성공적으로 제출되었습니다!"
+                        feedback_msg = "✨ 성적표 제출 성공! 참 잘했어요!"
                         feedback_color = ACCENT_GREEN
                     else:
-                        feedback_msg = "학번과 이름을 모두 입력해 주세요!"
+                        feedback_msg = "학번과 이름을 입력해 주세요!"
                         feedback_color = ERROR_RED
 
-        # 상단 헤더
-        pygame.draw.rect(screen, PRIMARY, (0, 0, WIDTH, 60))
-        title_txt = FONT_TITLE.render("가족 의사소통 & 갈등 해결 마스터", True, WHITE)
-        screen.blit(title_txt, (20, 16))
+        # --- UI 상단 헤더 & 화목도 (HP) 게이지 ---
+        pygame.draw.rect(canvas, PRIMARY, (0, 0, WIDTH, 60))
+        title_txt = FONT_TITLE.render("가족 의사소통 마스터", True, WHITE)
+        canvas.blit(title_txt, (20, 16))
         
-        score_txt = FONT_SUB.render(f"점수: {score}점 / 100점", True, WHITE)
-        screen.blit(score_txt, (WIDTH - 170, 18))
+        # 화목도 게이지 바 (HP Bar 디자인)
+        pygame.draw.rect(canvas, CARD_BORDER, (WIDTH - 260, 18, 200, 24), border_radius=12)
+        gauge_width = int((score / 100) * 196)
+        if gauge_width > 0:
+            pygame.draw.rect(canvas, ACCENT_PINK, (WIDTH - 258, 20, gauge_width, 20), border_radius=10)
+        
+        gauge_txt = FONT_BODY.render(f"화목도 {score}%", True, WHITE)
+        canvas.blit(gauge_txt, (WIDTH - 190, 22))
 
+        # --- 메인 컨텐츠 영역 ---
         if q_idx < 10:
             q_data = QUESTIONS[q_idx]
 
-            # 카테고리
-            cat_txt = FONT_SUB.render(f"Q{q_idx+1}. [{q_data['cat']}]", True, PRIMARY_DARK)
-            screen.blit(cat_txt, (40, 72))
+            # 카테고리 태그
+            cat_txt = FONT_SUB.render(f"STAGE {q_idx+1}. {q_data['cat']}", True, PRIMARY_DARK)
+            canvas.blit(cat_txt, (40, 72))
 
-            # 캐릭터 & 말풍선
-            draw_avatar(screen, 85, 152, role=q_data["role"], expression=q_data["exp"])
-            draw_speech_bubble(screen, q_data["dialogue"], 140, 115, 780, 70)
+            # 캐릭터 & 애니메이션 말풍선
+            draw_avatar(canvas, 85, 152, role=q_data["role"], expression=q_data["exp"], bounce_offset=bounce_offset)
+            draw_speech_bubble(canvas, q_data["dialogue"], 140, 115, 780, 70)
 
             # 질문 텍스트
             q_txt = FONT_SUB.render(q_data["q"], True, TEXT_DARK)
-            screen.blit(q_txt, (40, 212))
+            canvas.blit(q_txt, (40, 212))
 
-            # 5개 보기 버튼 출력
+            # 보기 버튼들
             for btn, _ in buttons:
-                btn.draw(screen)
+                btn.draw(canvas)
 
-        else: # 결과 제출 페이지
-            pygame.draw.rect(screen, WHITE, (180, 85, 600, 360), border_radius=16)
-            pygame.draw.rect(screen, PRIMARY, (180, 85, 600, 360), 3, border_radius=16)
+            # 콤보 표시
+            if combo > 1:
+                combo_txt = FONT_SUB.render(f"🔥 {combo} COMBO!", True, GOLD_YELLOW)
+                canvas.blit(combo_txt, (WIDTH - 120, 72))
 
-            res_title = FONT_TITLE.render("학습 완료! 결과를 제출하세요", True, PRIMARY_DARK)
-            screen.blit(res_title, (WIDTH//2 - res_title.get_width()//2, 115))
+        else: # 결과 및 제출 화면
+            pygame.draw.rect(canvas, WHITE, (180, 85, 600, 360), border_radius=16)
+            pygame.draw.rect(canvas, PRIMARY, (180, 85, 600, 360), 3, border_radius=16)
 
-            final_score_txt = FONT_SUB.render(f"최종 점수: {score}점", True, TEXT_DARK)
-            screen.blit(final_score_txt, (WIDTH//2 - final_score_txt.get_width()//2, 160))
+            res_title = FONT_TITLE.render("🏆 학습 완료! 결과를 기록하세요", True, PRIMARY_DARK)
+            canvas.blit(res_title, (WIDTH//2 - res_title.get_width()//2, 115))
+
+            final_score_txt = FONT_SUB.render(f"최종 가족 화목도: {score}점 / 100점", True, TEXT_DARK)
+            canvas.blit(final_score_txt, (WIDTH//2 - final_score_txt.get_width()//2, 160))
 
             lbl_id = FONT_BODY.render("학번:", True, TEXT_DARK)
             lbl_name = FONT_BODY.render("이름:", True, TEXT_DARK)
-            screen.blit(lbl_id, (270, 268))
-            screen.blit(lbl_name, (270, 323))
+            canvas.blit(lbl_id, (270, 268))
+            canvas.blit(lbl_name, (270, 323))
 
-            id_input.draw(screen)
-            name_input.draw(screen)
+            id_input.draw(canvas)
+            name_input.draw(canvas)
             
             if not submitted:
-                submit_btn.draw(screen)
+                submit_btn.draw(canvas)
             else:
-                done_txt = FONT_TITLE.render("✓ 제출이 완료되었습니다", True, ACCENT_GREEN)
-                screen.blit(done_txt, (WIDTH//2 - done_txt.get_width()//2, 385))
+                done_txt = FONT_TITLE.render("✓ 성공적으로 제출되었습니다!", True, ACCENT_GREEN)
+                canvas.blit(done_txt, (WIDTH//2 - done_txt.get_width()//2, 385))
 
-        # 하단 피드백 메시지
+        # --- 파티클 업데이트 및 그린 ---
+        for p in particles[:]:
+            p.draw(canvas)
+            if not p.update():
+                particles.remove(p)
+
+        # 하단 피드백 텍스트
         if feedback_msg:
             fb_txt = FONT_BODY.render(feedback_msg, True, feedback_color)
-            screen.blit(fb_txt, (WIDTH//2 - fb_txt.get_width()//2, 498))
+            canvas.blit(fb_txt, (WIDTH//2 - fb_txt.get_width()//2, 498))
 
+        # 최종 스크린에 쉐이크 효과 적용하여 출력
+        screen.blit(canvas, (shake_x, shake_y))
         pygame.display.flip()
         await asyncio.sleep(0)
 
