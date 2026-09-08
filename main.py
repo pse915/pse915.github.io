@@ -348,22 +348,29 @@ QUESTIONS = [
     }
 ]
 
-# ================= 구글 시트 전송 함수 (최종 수정 완료) =================
+# ================= 구글 시트 전송 함수 (최종 수정) =================
 def submit_to_google_sheet(std_id, name, score):
-    script_url = "https://script.google.com/macros/s/AKfycbz2z7ozmBNDNvLu_LtXwt5jlN5AjxtbLGB2_fdLhkJVe5To1qyptJ_T_rF7vV1A2Pmt/exec" 
-    data_dict = {"std_id": std_id, "name": name, "score": score}
-    payload = json.dumps(data_dict).encode('utf-8')
+    script_url = "https://script.google.com/macros/s/AKfycbweuLHM07QedLpvZ3tkRRU44DGrbhqG8y4BDQpRgSqzree3FTFGeDJHQZkFZe6dped5/exec"
+    data_dict = {
+        "std_id": str(std_id),
+        "name": str(name),
+        "score": int(score)
+    }
+    payload = json.dumps(data_dict, ensure_ascii=False).encode('utf-8')
 
-    # 1. 웹 브라우저 실행 환경 (Pygbag)
+    # 1. 웹 브라우저 실행 환경 (Pygbag / Pyodide)
     if window:
         try:
-            # text/plain으로 전송해야 CORS Preflight(OPTIONS) 차단을 피할 수 있음
             window.fetch(script_url, {
                 'method': 'POST',
-                'headers': {'Content-Type': 'text/plain'},
-                'body': json.dumps(data_dict),
-                'mode': 'no-cors'
+                'headers': {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                'body': json.dumps(data_dict, ensure_ascii=False),
+                'mode': 'no-cors',
+                'redirect': 'follow'
             })
+            print("Web 제출 요청 전송 완료")
             return True
         except Exception as e:
             print("Web Fetch Error:", e)
@@ -373,19 +380,20 @@ def submit_to_google_sheet(std_id, name, score):
     else:
         try:
             req = urllib.request.Request(
-                script_url, 
-                data=payload, 
+                script_url,
+                data=payload,
                 headers={
                     'Content-Type': 'text/plain;charset=utf-8',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 },
                 method='POST'
             )
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=10) as response:
                 print("PC 제출 완료, 응답 코드:", response.getcode())
+                print("응답 내용:", response.read().decode('utf-8')[:200])
             return True
         except Exception as e:
-            print("PC Submit Error:", e)
+            print("PC Submit Error:", type(e).__name__, e)
             return False
 
 # ================= 메인 실행 루프 =================
