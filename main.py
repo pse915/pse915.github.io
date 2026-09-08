@@ -3,26 +3,22 @@ import sys
 import asyncio
 import json
 
-# 웹(Pygbag) 환경에서의 js fetch 지원 체크
 try:
     from platform import window
 except ImportError:
     window = None
 
-# Pygame 초기화
 pygame.init()
 
-# 화면 설정 (960x540 / 16:9)
 WIDTH, HEIGHT = 960, 540
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("가족 의사소통 & 갈등 해결 마스터")
 
-# 색상 파렛트
 BG_COLOR = (240, 244, 248)
-PRIMARY = (99, 102, 241)       # 보라 파랑
+PRIMARY = (99, 102, 241)
 PRIMARY_DARK = (67, 56, 202)
-ACCENT_PINK = (244, 114, 182)   # 핑크 강조
-ACCENT_GREEN = (52, 211, 153)  # 정답 녹색
+ACCENT_PINK = (244, 114, 182)
+ACCENT_GREEN = (52, 211, 153)
 CARD_BG = (255, 255, 255)
 CARD_BORDER = (226, 232, 240)
 TEXT_DARK = (30, 41, 59)
@@ -30,17 +26,56 @@ TEXT_MUTED = (100, 116, 139)
 WHITE = (255, 255, 255)
 ERROR_RED = (248, 113, 113)
 
-# 폰트 로드 (font.ttf 파일 필요)
+# 폰트 변수를 전역에서 즉시 생성하지 않고 None으로 선언
+FONT_TITLE = None
+FONT_SUB = None
+FONT_BODY = None
+
 def get_font(size, bold=False):
     try:
         return pygame.font.Font("font.ttf", size)
     except Exception as e:
+        print(f"Font Load Error: {e}")
         return pygame.font.Font(None, size)
 
-FONT_TITLE = get_font(22, bold=True)
-FONT_SUB = get_font(17, bold=True)
-FONT_BODY = get_font(14)
+# ... (draw_avatar, draw_speech_bubble, Button, InputBox, QUESTIONS, submit_to_google_sheet 생략) ...
 
+async def main():
+    global FONT_TITLE, FONT_SUB, FONT_BODY
+    
+    # 웹 환경 파일로드 대기를 위해 비동기 딜레이 및 main 내부 초기화
+    await asyncio.sleep(0.1)
+    
+    FONT_TITLE = get_font(22, bold=True)
+    FONT_SUB = get_font(17, bold=True)
+    FONT_BODY = get_font(14)
+
+    clock = pygame.time.Clock()
+    
+    q_idx = 0
+    score = 0
+    feedback_msg = ""
+    feedback_color = ACCENT_GREEN
+
+    id_input = InputBox(330, 260, 300, 36, "예: 10101")
+    name_input = InputBox(330, 315, 300, 36, "예: 홍길동")
+    submit_btn = Button(380, 375, 200, 40, "구글 시트에 제출")
+    submitted = False
+
+    buttons = []
+    def load_question():
+        nonlocal buttons
+        buttons = []
+        opts = QUESTIONS[q_idx]["options"]
+        for idx, (text, is_correct) in enumerate(opts):
+            btn = Button(80, 248 + idx * 47, 800, 38, text)
+            buttons.append((btn, is_correct))
+
+    load_question()
+    running = True
+
+    while running:
+        # ... (이하 메인 루프 동일) ...
 # 캐릭터 삽화 함수
 def draw_avatar(surface, x, y, role="friend", expression="happy"):
     face_color = (254, 226, 226) if role == "sister" else ((253, 230, 138) if role == "dad" else (254, 243, 199))
