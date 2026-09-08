@@ -33,7 +33,7 @@ ERROR_RED = (248, 113, 113)
 # 폰트 로드
 def get_font(size, bold=False):
     try:
-        return pygame.font.Font("Gumi Romance.ttf", size)
+        return pygame.font.Font("font.ttf", size)
     except:
         return pygame.font.SysFont("malgungothic", size, bold=bold)
 
