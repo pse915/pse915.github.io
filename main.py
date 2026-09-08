@@ -388,7 +388,7 @@ async def main():
             pygame.draw.rect(screen, WHITE, (180, 85, 600, 360), border_radius=16)
             pygame.draw.rect(screen, PRIMARY, (180, 85, 600, 360), 3, border_radius=16)
 
-            res_title = FONT_TITLE.render("🎉 학습 완료! 결과를 제출하세요", True, PRIMARY_DARK)
+            res_title = FONT_TITLE.render("학습 완료! 결과를 제출하세요", True, PRIMARY_DARK)
             screen.blit(res_title, (WIDTH//2 - res_title.get_width()//2, 115))
 
             final_score_txt = FONT_SUB.render(f"최종 점수: {score}점", True, TEXT_DARK)
