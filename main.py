@@ -348,18 +348,19 @@ QUESTIONS = [
     }
 ]
 
-# ================= 구글 시트 전송 함수 (수정 완료) =================
+# ================= 구글 시트 전송 함수 (최종 수정 완료) =================
 def submit_to_google_sheet(std_id, name, score):
-    script_url = "https://script.google.com/macros/s/AKfycbx-BTs2aPWeYtcXiBPhdbUEQWGfrYgxqD1VqDB3ZeUZZY8tWON9ZxhtGAlq9gKnc0Z0/exec" 
+    script_url = "https://script.google.com/macros/s/AKfycbz2z7ozmBNDNvLu_LtXwt5jlN5AjxtbLGB2_fdLhkJVe5To1qyptJ_T_rF7vV1A2Pmt/exec" 
     data_dict = {"std_id": std_id, "name": name, "score": score}
     payload = json.dumps(data_dict).encode('utf-8')
 
     # 1. 웹 브라우저 실행 환경 (Pygbag)
     if window:
         try:
+            # text/plain으로 전송해야 CORS Preflight(OPTIONS) 차단을 피할 수 있음
             window.fetch(script_url, {
                 'method': 'POST',
-                'headers': {'Content-Type': 'application/json'},
+                'headers': {'Content-Type': 'text/plain'},
                 'body': json.dumps(data_dict),
                 'mode': 'no-cors'
             })
@@ -368,13 +369,17 @@ def submit_to_google_sheet(std_id, name, score):
             print("Web Fetch Error:", e)
             return False
 
-    # 2. 일반 PC 파이썬 실행 환경 (urllib 활용)
+    # 2. 일반 PC 파이썬 실행 환경 (urllib)
     else:
         try:
             req = urllib.request.Request(
                 script_url, 
                 data=payload, 
-                headers={'Content-Type': 'application/json'}
+                headers={
+                    'Content-Type': 'text/plain;charset=utf-8',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+                },
+                method='POST'
             )
             with urllib.request.urlopen(req) as response:
                 print("PC 제출 완료, 응답 코드:", response.getcode())
