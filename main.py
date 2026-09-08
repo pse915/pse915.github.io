@@ -4,6 +4,7 @@ import asyncio
 import json
 import math
 import random
+import urllib.request
 
 try:
     from platform import window
@@ -169,7 +170,7 @@ def draw_speech_bubble(surface, text, x, y, w, h):
         txt_sf = FONT_SUB.render(line, True, TEXT_DARK)
         surface.blit(txt_sf, (x + 22, y + 16 + i * 26))
 
-# ================= 모션 버튼 =================
+# ================= 모션 버튼 & 입력창 =================
 class Button:
     def __init__(self, x, y, w, h, text):
         self.rect = pygame.Rect(x, y, w, h)
@@ -347,22 +348,40 @@ QUESTIONS = [
     }
 ]
 
+# ================= 구글 시트 전송 함수 (수정 완료) =================
 def submit_to_google_sheet(std_id, name, score):
     script_url = "https://script.google.com/macros/s/AKfycbxl5cVTV1iVWKtqH64oyKxFZfCK0PzBeaFWskMUk0iWaTmuiH0Ul07tKC-ms5O0Y-6f/exec" 
-    payload = json.dumps({"std_id": std_id, "name": name, "score": score})
+    data_dict = {"std_id": std_id, "name": name, "score": score}
+    payload = json.dumps(data_dict).encode('utf-8')
+
+    # 1. 웹 브라우저 실행 환경 (Pygbag)
     if window:
         try:
             window.fetch(script_url, {
                 'method': 'POST',
                 'headers': {'Content-Type': 'application/json'},
-                'body': payload,
+                'body': json.dumps(data_dict),
                 'mode': 'no-cors'
             })
             return True
         except Exception as e:
-            print("Fetch Error:", e)
+            print("Web Fetch Error:", e)
             return False
-    return True
+
+    # 2. 일반 PC 파이썬 실행 환경 (urllib 활용)
+    else:
+        try:
+            req = urllib.request.Request(
+                script_url, 
+                data=payload, 
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req) as response:
+                print("PC 제출 완료, 응답 코드:", response.getcode())
+            return True
+        except Exception as e:
+            print("PC Submit Error:", e)
+            return False
 
 # ================= 메인 실행 루프 =================
 async def main():
@@ -392,7 +411,6 @@ async def main():
         nonlocal buttons
         buttons = []
         opts = QUESTIONS[q_idx]["options"]
-        # 캐릭터에 더 많은 비중을 주기 위해 선택 버튼의 Y위치를 조정 및 최적화
         for idx, (text, is_correct) in enumerate(opts):
             btn = Button(40, 275 + idx * 46, 880, 38, text)
             buttons.append((btn, is_correct))
@@ -445,10 +463,14 @@ async def main():
                 
                 if event.type == pygame.MOUSEBUTTONDOWN and submit_btn.rect.collidepoint(pos) and not submitted:
                     if id_input.text and name_input.text:
-                        submit_to_google_sheet(id_input.text, name_input.text, score)
-                        submitted = True
-                        feedback_msg = "✨ 성공적으로 결과가 제출되었습니다!"
-                        feedback_color = ACCENT_GREEN
+                        success = submit_to_google_sheet(id_input.text, name_input.text, score)
+                        if success:
+                            submitted = True
+                            feedback_msg = "✨ 성공적으로 결과가 제출되었습니다!"
+                            feedback_color = ACCENT_GREEN
+                        else:
+                            feedback_msg = "전송 실패! 인터넷 연결을 확인해 주세요."
+                            feedback_color = ERROR_RED
                     else:
                         feedback_msg = "학번과 이름을 입력해 주세요!"
                         feedback_color = ERROR_RED
