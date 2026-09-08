@@ -25,7 +25,7 @@ ERROR = (239, 68, 68)
 def get_font(size):
     try:
         # 같은 폴더에 NanumGothic.ttf 폰트 파일이 있으면 우선 로드
-        return pygame.font.Font("NanumGothic.ttf", size)
+        return pygame.font.Font("Gumi Romance.ttf", size)
     except:
         # 시스템 기본 한글 폰트 래핑
         return pygame.font.SysFont("malgungothic", size)
