@@ -350,7 +350,7 @@ QUESTIONS = [
 
 # ================= 구글 시트 전송 함수 (수정 완료) =================
 def submit_to_google_sheet(std_id, name, score):
-    script_url = "https://script.google.com/macros/s/AKfycbxl5cVTV1iVWKtqH64oyKxFZfCK0PzBeaFWskMUk0iWaTmuiH0Ul07tKC-ms5O0Y-6f/exec" 
+    script_url = "https://script.google.com/macros/s/AKfycbyKydQ_uEMD3jRMRXgL7UTHit1vdKQBGkakXtg-WKRqUfm_CfdcYt-xM1Ejoj8kiqhN/exec" 
     data_dict = {"std_id": std_id, "name": name, "score": score}
     payload = json.dumps(data_dict).encode('utf-8')
 
