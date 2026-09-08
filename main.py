@@ -35,7 +35,7 @@ def get_font(size, bold=False):
     try:
         return pygame.font.Font("font.ttf", size)
     except:
-        return pygame.font.SysFont("malgungothic", size, bold=bold)
+        return pygame.font.SysFont(None, size)
 
 FONT_TITLE = get_font(24, bold=True)
 FONT_SUB = get_font(18, bold=True)
