@@ -33,7 +33,7 @@ ERROR_RED = (248, 113, 113)
 # 폰트 로드
 def get_font(size, bold=False):
     try:
-        return pygame.font.Font("NanumGothic.ttf", size)
+        return pygame.font.Font("Gumi Romance.ttf", size)
     except:
         return pygame.font.SysFont("malgungothic", size, bold=bold)
 
@@ -269,7 +269,7 @@ QUESTIONS = [
 # Google Sheet 데이터 전송 함수 (Apps Script API 연동)
 def submit_to_google_sheet(std_id, name, score):
     # Google Apps Script Web App URL (시트 연동용)
-    script_url = "https://script.google.com/macros/s/AKfycbx_YOUR_SCRIPT_ID/exec" 
+    script_url = "https://script.google.com/macros/s/AKfycbxl5cVTV1iVWKtqH64oyKxFZfCK0PzBeaFWskMUk0iWaTmuiH0Ul07tKC-ms5O0Y-6f/exec" 
     
     payload = json.dumps({"std_id": std_id, "name": name, "score": score})
     
